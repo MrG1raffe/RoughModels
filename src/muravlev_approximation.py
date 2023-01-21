@@ -23,8 +23,8 @@ def fbm_muravlev(n: int, hurst: float, mode: str = "standard", n_beta: float = 2
             fBM: Trajectory of the fBM (np.ndarray of size n+1) approximation if 'extended_return' == False.
             (fBM, Z): Trajectory of the fBM (np.ndarray of shape (n+1,)) approximation and OU processes (np.ndarray of shape (n+1, n_beta))
                 if 'extended_return' == True and 'mode' == "standard".
-            (fBM, Y, eta, alphas): Trajectory of the fBM (np.ndarray of shape (n+1,)) approximation, integrands Y'' (np.ndarray of shape (n+1, n_beta)),
-                its means 'eta' and quadrature points 'alphas' if 'extended_return' == True and 'mode' == "gauss-jacobi".
+            (fBM, Y, eta, alphas, weights): Trajectory of the fBM (np.ndarray of shape (n+1,)) approximation, integrands Y'' (np.ndarray of shape (n+1, n_beta)),
+                its means 'eta', quadrature points 'alphas' and its 'weights' if 'extended_return' == True and 'mode' == "gauss-jacobi".
     """
 
     # ToDo: add T as a function argument and use self-similarity to transfrom trajectory generated on [0, 1] to the trajectory on [0, T].
@@ -88,14 +88,16 @@ def fbm_muravlev(n: int, hurst: float, mode: str = "standard", n_beta: float = 2
         eta = np.random.multivariate_normal(mean=np.zeros_like(alphas), cov=eta_cov, size=1)[0]
 
         dt = 1 / n
-        zeta = np.random.randn(n)[:, None] * np.sqrt(0.5 * (1 - np.exp(-2*betas*dt)) / (1 + alphas))[None, :]
+        dY_cov = (1 - np.exp(-(betas[:, None] + betas[None, :]) * dt)) / ((betas[:, None] + betas[None, :]) * np.sqrt((1 - alphas[:, None]) * (1 - alphas[None, :])))
+        dY = np.random.multivariate_normal(mean=-eta, cov=dY_cov, size=n)
         Y = np.zeros((n + 1, n_beta))
         for i in range(n):
-            Y[i + 1] = np.exp(-betas*dt)*(Y[i] + eta) - eta + zeta[i]
+            # Exact simulation
+            Y[i + 1] = np.exp(-betas*dt)*(Y[i] + eta) + dY[i]
 
         const_H = np.sqrt(gamma(2*hurst + 1) * np.sin(np.pi * hurst)) / beta(0.5 + hurst, 0.5 - hurst)
         fBM = 2 * const_H * Y @ weights
 
-        return fBM if not extended_return else (fBM, Y, eta, alphas)
+        return fBM if not extended_return else (fBM, Y, eta, alphas, weights)
 
     return None
