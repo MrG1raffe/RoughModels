@@ -107,7 +107,7 @@ def fbm_muravlev(n: int, hurst: float, mode: str = "standard", n_beta: float = 2
     if mode == "lifted":
         a = hurst + 0.5
         betas = (1 - a) / (2 - a) * (r**(2-a) - 1) / (r**(1-a) - 1) * r**(np.arange(n_beta) - 0.5*n_beta)
-        weights = (r**(1-a) - 1) * r**((a - 1) * (1 + 0.5*n_beta)) / gamma(2-a) * r**((1-a)*np.arange(1, n_beta+1))
+        weights = (r**(1-a) - 1) * r**((a - 1) * (1 + 0.5*n_beta)) / (1 - a) * r**((1-a)*np.arange(1, n_beta+1))
 
         xi_cov = 1 / (betas[:, None] + betas[None, :])
         xi = np.random.multivariate_normal(mean=np.zeros_like(betas), cov=xi_cov, size=1)[0]
