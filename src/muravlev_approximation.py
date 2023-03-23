@@ -13,7 +13,7 @@ def fbm_muravlev(n: int, hurst: float, mode: str = "standard", n_beta: float = 2
             n: number of equispaced increments desired for a fBM simulation.
             hurst: hurst exponent of the fBM.
             mode: "standard" to use integral from Muravlev's article. "gauss-jacobi" to use integral with limits (-1, 1) and approximate it by Gauss-Jacobi quadrature.
-                  "lifted" uses the discretization proposed by Abi Jaber, "modified_lifted" uses the modified Abi Jaber discretization with additional multiplicative parameter k.
+                  "lifted" uses the discretization proposed by Abi Jaber, "modified_lifted" uses the modified Abi Jaber discretization with additional  parameter k.
             n_beta: size of the integral discretization grid.
             beta_max: the value of beta at which the integral is truncated. Used only for 'mode' == "standard".
             uniform_beta_grid: whether the beta grid is uniform. Used only for 'mode' == "standard".
