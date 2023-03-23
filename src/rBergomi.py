@@ -1,7 +1,7 @@
 import numpy as np
-import pandas as pd
 from scipy.special import hyp2f1
 from numpy.linalg import cholesky
+
 
 class rBergomi():
     def __init__(self, H, T=4, rho=0):

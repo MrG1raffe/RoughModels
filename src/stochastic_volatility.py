@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def price_from_vol(vol_proc, mode='vol', T=1, x0=1, rho=0, dW=None):
     """
     Sample process X (with stochastic volatility) on [0, T], satisfying SDE

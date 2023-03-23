@@ -4,11 +4,12 @@ time independent coefficients.
 """
 
 import numpy as np
-from typing import Union, Optional, Callable
+from typing import Union, Callable
 from numpy.typing import NDArray
 from numpy import float_
 from scipy.special import hyp2f1
 from scipy.signal import convolve
+
 
 def simulate_stochastic_convolution(
     T: float,
