@@ -1,7 +1,16 @@
 import numpy as np
+from numpy.typing import NDArray
+from numpy import float_
 
 
-def price_from_vol(vol_proc, mode='vol', T=1, x0=1, rho=0, dW=None):
+def price_from_volatility(
+    vol_proc: NDArray[float_],
+    mode: str = 'vol',
+    T: float = 1,
+    x0: float = 1,
+    rho: float = 0,
+    dW: NDArray[float_] = None
+) -> NDArray[float_]:
     """
     Sample process X (with stochastic volatility) on [0, T], satisfying SDE
     dS = sigma*X*dW,
@@ -20,6 +29,8 @@ def price_from_vol(vol_proc, mode='vol', T=1, x0=1, rho=0, dW=None):
     """
     vol_proc = vol_proc[:-1]
     dt = T / vol_proc.size
+    if dW is None:
+        dW = np.random.randn(vol_proc.size) * np.sqrt(dt)
     dB = rho * dW + np.sqrt(1 - rho**2) * np.random.randn(dW.size) * np.sqrt(dt)
     if mode == 'vol':
         return np.exp(np.log(x0) + np.concatenate([[0], vol_proc * dB - 0.5 * vol_proc**2 * dt]).cumsum())

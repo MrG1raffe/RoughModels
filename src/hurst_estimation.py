@@ -8,9 +8,9 @@ Main estimatimation methods are 'm_estimator' and 'w_estimator' respectively.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm
 from sklearn.linear_model import LinearRegression
-from scipy.optimize import root_scalar
+from scipy.optimize import root_scalar, minimize
+from scipy.special import gamma, factorial
 
 # Global ToDo:
 # rewrite the roughness estimation methods in this model as classes.
@@ -18,6 +18,7 @@ from scipy.optimize import root_scalar
 # -----------------------------------------------------------------------
 # ---      regression analysis from Gatheral, Jaisson, Rosenbaum      ---
 # -----------------------------------------------------------------------
+
 
 def my_diff(x, lag):
     """
@@ -32,6 +33,7 @@ def my_diff(x, lag):
         The finite difference array of shape x.shape.
     """
     return x - np.concatenate([np.zeros(lag), x[:-lag]])
+
 
 def get_m(X, q, delta, intersect=False):
     """
@@ -52,6 +54,7 @@ def get_m(X, q, delta, intersect=False):
         q = q.reshape((q.size, 1))
     return (np.abs(my_diff(X, lag=delta)[delta::step])**q).mean(axis=axis)
 
+
 def get_m_matrix(X, q, steps, intersect=False):
     """
     Calculates the estimation of m from "Volatility is rough" for given step delta and q for different delta (steps).
@@ -69,6 +72,7 @@ def get_m_matrix(X, q, steps, intersect=False):
     for i, delta in enumerate(steps):
         m[:, i] = get_m(X, q, delta, intersect=intersect)
     return m
+
 
 def m_regression(m, q, steps, is_plotting=False, ax=None):
     """
@@ -106,6 +110,7 @@ def m_regression(m, q, steps, is_plotting=False, ax=None):
         ax.grid()
     return c, b
 
+
 def H_regression(q, c, is_plotting=False, ax=None):
     """
     Builds the regression of slope coefficientes c on q.
@@ -134,7 +139,8 @@ def H_regression(q, c, is_plotting=False, ax=None):
         ax.set_ylabel(r'$\zeta_q$')
     return H
 
-def m_estimator(X, q=None, steps=None, is_plotting=False, intersect=False, eta=0):
+
+def m_estimator(X, q=None, steps=None, is_plotting=False, intersect=False):
     """
     Provides the trajectory analysis from "Volatility is rough" for X.
 
@@ -144,7 +150,6 @@ def m_estimator(X, q=None, steps=None, is_plotting=False, intersect=False, eta=0
         steps: np.ndarray, contains values of delta.
         is_plotting: whether to plot the regressions.
         intersect: bool, whether the intervals (i, i+delta) intersect or not.
-        eta: variance of the noise.
 
     Returns:
         The m-stimation of Hurst exponent H.
@@ -155,7 +160,7 @@ def m_estimator(X, q=None, steps=None, is_plotting=False, intersect=False, eta=0
         steps = np.arange(1, 51)
 
     if is_plotting:
-        fig, ax = plt.subplots(1, 2, figsize=(15, 7))
+        _, ax = plt.subplots(1, 2, figsize=(15, 7))
     else:
         ax = [None, None]
 
@@ -167,6 +172,7 @@ def m_estimator(X, q=None, steps=None, is_plotting=False, intersect=False, eta=0
 # -----------------------------------------------------------------------
 # ---             Estimation of variation from Cont, Das.             ---
 # -----------------------------------------------------------------------
+
 
 def estimate_w(X, p, K):
     """
@@ -193,6 +199,7 @@ def estimate_w(X, p, K):
     W = np.abs(np.diff(X[K_grid]))**p / (np.bincount(ids, np.abs(np.diff(X))**p)) * delta * ((L - 1) // K)
     return W.sum()
 
+
 def w_estimator(X, K=None):
     """
     Calculates the estimation of H solving the equation W(X, 1/H, K) = 1.
@@ -212,10 +219,78 @@ def w_estimator(X, K=None):
         return estimate_w(X, 1 / h, K) - 1
 
     # ToDo: write an adequate choice of h_min
-    if func(0.1) * func(2) < 0:
-        h_min = 0.1
-    elif func(0.01) * func(2) < 0:
-        h_min = 0.01
-    else:
-        h_min = 0.002
+    h_min, h_max = 0.1, 2
+    while func(h_min) * func(h_max) > 0:
+        h_min /= 2
     return root_scalar(func, bracket=[h_min, 2], method='bisect').root
+
+
+# -----------------------------------------------------------------------
+# ---             Adopted Whittle estimator by Fukasawa               ---
+# -----------------------------------------------------------------------
+
+
+def adopted_whittle_estimator(X, m, delta=1, x0=None):
+    """
+    Estimates the paramters (H, sigma) for variance process X, satisfying SDE
+    d log(v_t) = kappa * dt + sigma * dW_t^H.
+
+    Args:
+        X: variance trajectory.
+        m: number of points in one day (i.e. size of sample used for RV estimation).
+        delta: time step (between days).
+        x0: initial values of (H, sigma) in minimization.
+
+    Returns:
+        Maximum likelihood estimator of the parameters (H, sigma)
+    """
+    PSI = 1e-5
+    K = 500
+    J = 20
+
+    Y = np.diff(np.log(X))
+    n = Y.size
+
+    def likelihood_u(H, nu):
+        H = max(min(H, 0.99), 0.001)
+
+        N_GRID = 1000
+        lam_grid = np.linspace(PSI, np.pi, N_GRID)
+        C = 1 / (2*np.pi) * gamma(2*H + 1) * np.sin(np.pi*H)  # page 24
+        d1 = (2*np.pi*np.arange(1, K+1).reshape((-1, 1)) +
+              lam_grid.reshape((1, -1)))**(-3 - 2*H) + (2*np.pi*np.arange(1, K+1).reshape((-1, 1)) - lam_grid.reshape((1, -1)))**(-3 - 2*H)
+        d2 = ((2*np.pi*np.arange(K, K+2).reshape((-1, 1)) +
+              lam_grid.reshape((1, -1)))**(-2 - 2*H) + (2*np.pi*np.arange(K, K+2).reshape((-1, 1)) - lam_grid.reshape((1, -1)))**(-2 - 2*H)) / (2*np.pi*(2 + 2*H))
+        II = np.abs(Y @ np.exp(1j * np.arange(1, n+1).reshape((-1, 1)) *
+                    lam_grid.reshape((1, -1))))**2 / (2*np.pi*n)
+        g = nu**2 * C * (2*(1 - np.cos(lam_grid)))**2 * (
+            np.abs(lam_grid)**(-3-2*H) + d1.sum(axis=0) +
+            0.5*d2.sum(axis=0)) + 2 / (m*np.pi) * (1 - np.cos(lam_grid))  # l from page 24
+        integ = np.trapz(np.log(g) + II / g, lam_grid)
+
+        A1 = PSI*np.log(nu**2 * C) + PSI*(np.log(PSI) - 1)*(1 - 2*H) + \
+            PSI**(2 + 2*H) / (nu**2 * C * m * np.pi * (2 + 2*H))
+
+        gam = np.zeros(n)
+        for i in range(n):
+            gam[i] = 1 / n * Y[:n-i] @ Y[i:]
+        a = np.zeros(n)
+        for j in range(J + 1):
+            a += 1 / (2*np.pi) * (-1)**j * np.arange(n)**(2*j) / factorial(2*j) / \
+                (nu**2 * C)*(PSI**(2*j + 2*H)/(2*j + 2*H) - PSI**(1 + 2*j + 4*H) / (nu**2 * C * m * np.pi * (1 + 2*j + 4*H)))
+        A2 = gam[0]*a[0] + 2*gam[1:] @ a[1:]
+
+        u = 1 / (2*np.pi) * (integ + A1 + A2)
+        return u
+
+    if x0 is None:
+        H0 = 0.5
+        sigma0 = 1
+    else:
+        H0, sigma0 = x0
+
+    (H_opt, nu_opt) = minimize(fun=lambda x: likelihood_u(x[0], x[1]),
+                               x0=[H0, sigma0 * delta**H0],
+                               method='L-BFGS-B').x
+    sigma_opt = nu_opt / (delta**H_opt)
+    return H_opt, sigma_opt
