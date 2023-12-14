@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn import LinearRegression
+from sklearn.linear_model import LinearRegression
 
 
 def rs_regression(h, n_max=None, is_plotting=True):

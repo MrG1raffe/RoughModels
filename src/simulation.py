@@ -60,7 +60,7 @@ def simulate_OU(n_sample, sigma=1, lam=1, mu=0, T=1, init=None):
     k = int(np.ceil(np.log2(n_sample)))
     T = (2**k / n_sample) * T
     ou = np.zeros(2**k + 1)
-    ou[0] = np.random.randn() * sigma if init is None else init
+    ou[0] = np.random.randn() * sigma if init is None else 0
     ou[-1] = sigma * np.sqrt(1 - np.exp(-2 * lam * T)) * np.random.randn() + ou[0] * np.exp(-lam * T)
     step = 2**k
     first = 2**(k - 1)
@@ -68,8 +68,8 @@ def simulate_OU(n_sample, sigma=1, lam=1, mu=0, T=1, init=None):
     for i in range(0, k):
         h /= 2
         ou[first::step] = np.random.randn(2**i) * sigma * \
-            np.sqrt((np.exp(2 * h * lam) - 1) / (np.exp(2 * h * lam) + 1)) + \
-            (ou[:-1:step] + ou[step::step]) / (np.exp(lam * h) + np.exp(-lam * h))
+            np.sqrt((1 - np.exp(-2 * h * lam)) / (1 + np.exp(-2 * h * lam))) + \
+            (ou[:-1:step] + ou[step::step]) * np.exp(-lam * h) / (1 + np.exp(-2 * lam * h))
         first = first // 2
         step = step // 2
     return (mu + ou)[:n_sample]
